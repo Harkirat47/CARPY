@@ -1,0 +1,106 @@
+{
+  "timestamp": "20250831_162209",
+  "distance": 44.12751770019531,
+  "blindspots": [
+    {
+      "bbox": [
+        0,
+        0,
+        80,
+        80
+      ],
+      "kind": "smudge",
+      "score": 0.999997079372406,
+      "why": {
+        "r_lap": 0.285,
+        "r_edge": 0.0,
+        "r_contr": 0.267,
+        "med_lap": 71.68,
+        "med_edge": 0.0135,
+        "med_contr": 34.08,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        80,
+        0,
+        160,
+        80
+      ],
+      "kind": "smudge",
+      "score": 0.9570843577384949,
+      "why": {
+        "r_lap": 0.325,
+        "r_edge": 0.0,
+        "r_contr": 0.252,
+        "med_lap": 71.68,
+        "med_edge": 0.0135,
+        "med_contr": 34.08,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        560,
+        0,
+        640,
+        80
+      ],
+      "kind": "smudge",
+      "score": 0.9981479048728943,
+      "why": {
+        "r_lap": 0.003,
+        "r_edge": 0.0,
+        "r_contr": 0.004,
+        "med_lap": 71.68,
+        "med_edge": 0.0135,
+        "med_contr": 34.08,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        320,
+        80,
+        400,
+        160
+      ],
+      "kind": "smudge",
+      "score": 0.9978939294815063,
+      "why": {
+        "r_lap": 0.0,
+        "r_edge": 0.0,
+        "r_contr": 0.002,
+        "med_lap": 71.68,
+        "med_edge": 0.0135,
+        "med_contr": 34.08,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        400,
+        320,
+        480,
+        400
+      ],
+      "kind": "smudge",
+      "score": 0.9463667869567871,
+      "why": {
+        "r_lap": 0.18,
+        "r_edge": 0.0,
+        "r_contr": 0.315,
+        "med_lap": 71.68,
+        "med_edge": 0.0135,
+        "med_contr": 34.08,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    }
+  ]
+}

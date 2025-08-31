@@ -1,0 +1,26 @@
+{
+  "timestamp": "20250831_162345",
+  "distance": 37.9398078918457,
+  "blindspots": [
+    {
+      "bbox": [
+        400,
+        240,
+        480,
+        320
+      ],
+      "kind": "smudge",
+      "score": 0.9999746084213257,
+      "why": {
+        "r_lap": 0.134,
+        "r_edge": 0.0,
+        "r_contr": 0.194,
+        "med_lap": 86.36,
+        "med_edge": 0.0149,
+        "med_contr": 34.04,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    }
+  ]
+}

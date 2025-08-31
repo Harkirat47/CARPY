@@ -1,0 +1,101 @@
+# camtester.py
+import cv2
+import numpy as np
+from CAM import CameraMonitor  # <- new module/file name: cam.py
+
+# --- helpers -------------------------------------------------
+
+def to_blindspot_dicts(cell_metrics_list):
+    """
+    Convert new CellMetrics objects to your old dict format.
+    """
+    out = []
+    for c in cell_metrics_list:
+        out.append({
+            "bbox": tuple(c.bbox),                 # (x1,y1,x2,y2)
+            "cause": c.reason or "issue",          # string reason
+            # extras (not required by your drawer, but handy to keep)
+            "lapvar": float(c.lapvar),
+            "entropy": float(c.entropy),
+            "edge_density": float(c.edgedens),
+            "brightness": float(c.mean),
+            "contrast": float(c.contrast),
+            "depth_var": None if c.depth_var is None else float(c.depth_var),
+            "depth_edge": None if c.depth_edge is None else float(c.depth_edge),
+        })
+    return out
+
+def draw_blindspots(frame, blindspots):
+    for spot in blindspots:
+        x1, y1, x2, y2 = spot["bbox"]
+        label = f"{spot['cause']}"
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+        cv2.putText(frame, label, (x1 + 2, max(12, y1 - 6)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
+    return frame
+
+def process_frame_with_new_monitor(monitor: CameraMonitor, frame):
+    """
+    Emulates the old monitor.process_frame(frame) API using the new design.
+    Returns: (is_drift, distance, blindspots_dict_list)
+    """
+    # Optional depth (None by default unless you plug MiDaS in cam.CameraMonitor)
+    depth = monitor.depth.estimate(frame)
+
+    # Drift distance/flag from EWMA+MAD monitor
+    is_drift, distance = monitor.drift.update_and_check(frame)
+
+    # Blindspots from per-cell analysis
+    cells = monitor.bs.analyze(frame, depth)
+    blindspots = to_blindspot_dicts(cells)
+
+    return is_drift, distance, blindspots
+
+# --- main ----------------------------------------------------
+
+def main():
+    monitor = CameraMonitor()  # uses new clean architecture
+    cap = cv2.VideoCapture(1)
+
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    cap.set(cv2.CAP_PROP_FPS, 30)
+
+    print("🔍 Starting Calibrator Monitor (press 'p' to save calibration photo, 'q' to quit)...")
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("❌ Failed to read frame.")
+            break
+
+        is_drift, distance, blindspots = process_frame_with_new_monitor(monitor, frame)
+
+        status_text = f"{'⚠️ Drift' if is_drift else '✅ Stable'} | Distance = {distance:.2f}"
+        color = (0, 0, 255) if is_drift else (0, 200, 0)
+
+        annotated = frame.copy()
+        if blindspots:
+            annotated = draw_blindspots(annotated, blindspots)
+
+        cv2.putText(annotated, status_text, (10, 25),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2, cv2.LINE_AA)
+
+        cv2.imshow("Camera Blindspot Monitor", annotated)
+
+        k = cv2.waitKey(1) & 0xFF
+        if k == ord('q') or k == 27:
+            print("🛑 Quitting.")
+            break
+        if k in (ord('p'), ord('P')):  # keep your calibration snapshot workflow
+            path = monitor.io.calib_dir / f"calib_{monitor.__class__.__name__}_{monitor.__class__.__name__}.jpg"
+            # use the orchestrator’s saved path logic for consistency
+            path = monitor.io.calib_dir / f"calib_{cv2.getTickCount()}.jpg"
+            cv2.imwrite(str(path), frame)
+            print(f"📷 Saved calibration photo → {path}")
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    main()
