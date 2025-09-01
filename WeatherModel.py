@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torchvision import transforms
 from PIL import Image
 import os
@@ -12,9 +13,11 @@ class MedianFilterTransform:
 
     def __call__(self, img):
         np_img = np.array(img)
-        np_img = cv2.cvtColor(np_img, cv2.COLOR_RGB2BGR)
+        if len(np_img.shape) == 3:
+            np_img = cv2.cvtColor(np_img, cv2.COLOR_RGB2BGR)
         filtered_img = cv2.medianBlur(np_img, self.kernel_size)
-        filtered_img = cv2.cvtColor(filtered_img, cv2.COLOR_BGR2RGB)
+        if len(filtered_img.shape) == 3:
+            filtered_img = cv2.cvtColor(filtered_img, cv2.COLOR_BGR2RGB)
         return Image.fromarray(filtered_img)
 
 class UNetDown(nn.Module):
@@ -45,6 +48,7 @@ class UNetUp(nn.Module):
 
     def forward(self, x, skip_input):
         x = self.model(x)
+        x = F.interpolate(x, size=skip_input.shape[2:], mode='bilinear', align_corners=False)
         x = torch.cat((x, skip_input), 1)
         return x
 
@@ -93,6 +97,8 @@ class Generator(nn.Module):
         return J, t, A
 
 def process_frame(model, frame, device, median_filter, transform):
+    original_height, original_width, _ = frame.shape
+
     image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     image_filtered = median_filter(image)
     input_tensor = transform(image_filtered).unsqueeze(0).to(device)
@@ -104,20 +110,25 @@ def process_frame(model, frame, device, median_filter, transform):
     output_tensor = torch.clamp(output_tensor, 0, 1)
     output_tensor = output_tensor.squeeze(0).cpu()
     output_array = output_tensor.permute(1, 2, 0).numpy()
-    output_frame = cv2.cvtColor((output_array * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
-    
-    return output_frame
+    output_frame_bgr = cv2.cvtColor((output_array * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
+
+    output_frame_resized = cv2.resize(output_frame_bgr, (original_width, original_height))
+
+    return output_frame_resized
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
-    
+
+    # Define image size variable for consistency
+    image_size = (480, 640)
+
     model = Generator().to(device)
     model_path = "generator.pth"
 
     if not os.path.exists(model_path):
         print(f"Error: Model file not found at '{model_path}'")
-        print(f"Please ensure your trained model is in the same directory and the filename is correct.")
+        print("Please ensure your trained 'generator_640x480.pth' is in the same directory.")
     else:
         model.load_state_dict(torch.load(model_path, map_location=device))
         model.eval()
@@ -125,12 +136,12 @@ if __name__ == "__main__":
 
         median_filter = MedianFilterTransform(kernel_size=3)
         transform = transforms.Compose([
-            transforms.Resize((256, 256)),
+            transforms.Resize(image_size),
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
 
-        cap = cv2.VideoCapture(1) 
+        cap = cv2.VideoCapture(0) # Use 0 for the default camera
         if not cap.isOpened():
             print("Error: Could not open camera.")
             exit()
@@ -142,8 +153,9 @@ if __name__ == "__main__":
                 break
 
             defogged_frame = process_frame(model, frame, device, median_filter, transform)
-            resized_original = cv2.resize(frame, (256, 256))
-            combined_display = np.hstack([resized_original, defogged_frame])
+          
+            combined_display = np.hstack([frame, defogged_frame])
+            
             cv2.imshow('Original vs. Defogged - Press Q to Quit', combined_display)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
