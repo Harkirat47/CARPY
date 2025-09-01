@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# MAIN_CAM_WEATHER_YOLO.py — merges Weather → CAM → YOLO (in that order), preserving your CAM_TEST behavior.
+# MAIN_CAM_WEATHER_YOLO.py — Weather → CAM → YOLO with safer defaults, baseline refresh, blur HUD, and toggles.
 import os
 import cv2
 import time
@@ -16,20 +16,13 @@ from CAMFINALREAL import CameraMonitor  # unchanged
 # ─────────────────────────────────────────────────────────────
 # REQUIRED: import Weather model parts exactly from your file
 # ─────────────────────────────────────────────────────────────
-# weather_model.py must define: Generator, MedianFilterTransform, process_frame
+# WeatherModel.py must define: Generator, MedianFilterTransform, process_frame
 from torchvision import transforms
 from WeatherModel import Generator, MedianFilterTransform, process_frame
 
-# Optional: If your YOLO is already loaded elsewhere, you may provide a simple module:
-#   # yolo_loaded.py
-#   # expose either `yolo_model` (Ultralytics-like) or a callable `yolo_predict(frame_rgb)->list[dict]`
-#   from ultralytics import YOLO
-#   yolo_model = YOLO("yolo12s.pt")
-#
-# This main will first try `yolo_loaded.yolo_predict`, then `yolo_loaded.yolo_model`,
-# else it will try to load "yolo12s.pt" itself if present.
+# Optional shim for externally loaded YOLO
 try:
-    import yolo_loaded  # optional convenience shim
+    import yolo_loaded  # exposes yolo_predict(rgb) or yolo_model
 except Exception:
     yolo_loaded = None
 
@@ -37,21 +30,21 @@ except Exception:
 # TUNABLE VALUES (EDIT NUMBERS/PATHS ONLY)
 # ─────────────────────────────────────────────────────────────
 # Camera & runner
-CAM_INDEX                 = 1       # fallback used if this fails
+CAM_INDEX                 = 1
 FALLBACK_INDEX            = 0
 CAP_WIDTH                 = 640
 CAP_HEIGHT                = 480
 CAP_FPS                   = 30
-INIT_MIN_SCORE            = -1.0    # -1 => auto (use tracker.persistence_hi), else 0.00..1.00
-START_WITH_GRID           = 1       # 1 => show grid, 0 => hide
+INIT_MIN_SCORE            = -1.0    # -1 => auto via tracker.persistence_hi; else explicit 0..1
+START_WITH_GRID           = 1       # 1 show grid, 0 hide
 
-# CameraMonitor constructor (top-level, matches CAM.CameraMonitor.__init__)
+# CameraMonitor constructor (matches CAM.CameraMonitor.__init__)
 GRID_X                    = 8
 GRID_Y                    = 6
-PERSISTENCE_HI            = 0.85
-RATIO_LAP                 = 0.55
-RATIO_EDGE                = 0.55
-RATIO_CONTR               = 0.65
+PERSISTENCE_HI            = 0.92    # safer (was 0.85)
+RATIO_LAP                 = 0.60    # safer (was 0.55)
+RATIO_EDGE                = 0.60    # safer (was 0.55)
+RATIO_CONTR               = 0.75    # safer (was 0.65)
 GLOBAL_MIN_EDGES          = 0.01
 GLOBAL_MIN_LAP            = 30.0
 FREEZE_MARGIN             = 0.85
@@ -59,7 +52,7 @@ SEQ_LEN                   = 30
 PIXEL_MASK_DECAY          = 0.98
 HEALTHY_DEACTIVATE        = 30
 
-# Post-init tracker overrides (BlindspotTracker fields not in the ctor)
+# Post-init tracker overrides
 EWMA_ALPHA                = 0.05
 DECAY_PIXEL               = 0.98
 DECAY_TILE                = 0.95
@@ -67,21 +60,20 @@ DELTA_THRESH              = 20
 HOT_VAL                   = 245
 DEAD_VAL                  = 10
 VAR_THRESH                = 2.0
-MIN_TILE_AREA             = 400
-# (You can redo FREEZE_MARGIN here by changing FREEZE_MARGIN above; we pass it in ctor)
+MIN_TILE_AREA             = 900     # safer (was 400)
 
-# Post-init corrector overrides (BlindspotCorrector)
-CORR_PIXEL_MASK_DECAY     = -1.0    # -1 => keep ctor value; else 0..1
-CORR_HEALTHY_DEACTIVATE   = -1      # -1 => keep ctor value; else >=1
+# Post-init corrector overrides
+CORR_PIXEL_MASK_DECAY     = -1.0    # -1 keep ctor; else 0..1
+CORR_HEALTHY_DEACTIVATE   = -1      # -1 keep ctor; else >=1
 
 # Enhancement strength (CLAHE/unsharp) — set both to apply
-CLAHE_CLIP_LIMIT          = -1.0    # -1 => keep default; else >0 (e.g., 2.5)
-CLAHE_TILE_W              = -1      # -1 => keep default
-CLAHE_TILE_H              = -1      # -1 => keep default
+CLAHE_CLIP_LIMIT          = -1.0    # keep corrector default (milder than forcing)
+CLAHE_TILE_W              = -1
+CLAHE_TILE_H              = -1
 
 # Internal thresholds (monkey-patched)
-PERSIST_MASK_BINARY_THR   = 0.40    # default in CAM is 0.40; lower = stickier pixel mask
-ACTIVE_TILE_HEALTHY_THR   = 0.15    # default in CAM is 0.15; lower = easier to count as healthy
+PERSIST_MASK_BINARY_THR   = 0.60    # less sticky inpaint (was 0.40)
+ACTIVE_TILE_HEALTHY_THR   = 0.25    # faster deactivation (was 0.15)
 
 # HUD tweak (cosmetic)
 GRID_COLOR_R              = 80
@@ -98,14 +90,17 @@ WEATHER_MEDIAN_KERNEL     = 3
 YOLO_WEIGHTS_PATH         = "yolo12s.pt"  # used if auto-loading via Ultralytics
 YOLO_CONF_THRESH          = 0.25
 YOLO_IOU_THRESH           = 0.45
-YOLO_EXPECTS_RGB          = True         # most Ultralytics models expect RGB
+YOLO_EXPECTS_RGB          = True
+
+# Baseline refresh policy
+AUTO_BASELINE_REFRESH     = True     # automatically refresh baseline when enough logs exist
+BASELINE_REFRESH_EVERY_S  = 120.0    # minimum seconds between auto-refresh attempts
 
 # Window title
-WINDOW_TITLE              = "Weather → Camera Blindspot Monitor → YOLO (Press q to quit)"
-
+WINDOW_TITLE              = "Weather → Camera Blindspot Monitor → YOLO (Press h for help)"
 
 # ─────────────────────────────────────────────────────────────
-# Weather init & runner (wraps your weather_model.process_frame)
+# Weather init & runner (wraps your WeatherModel.process_frame)
 # ─────────────────────────────────────────────────────────────
 class WeatherRunner:
     def __init__(self,
@@ -130,7 +125,6 @@ class WeatherRunner:
         ])
 
     def __call__(self, frame_bgr: np.ndarray) -> np.ndarray:
-        """Returns enhanced BGR image resized back to original WxH."""
         h, w = frame_bgr.shape[:2]
         with torch.no_grad():
             out_bgr = process_frame(self.model, frame_bgr, self.device, self.median_filter, self.transform)
@@ -138,20 +132,10 @@ class WeatherRunner:
             out_bgr = cv2.resize(out_bgr, (w, h), interpolation=cv2.INTER_LINEAR)
         return out_bgr
 
-
 # ─────────────────────────────────────────────────────────────
-# YOLO init & runner (works with already-loaded or auto-loaded)
+# YOLO init & runner (external or auto-load)
 # ─────────────────────────────────────────────────────────────
 class YoloRunner:
-    """
-    Attempts the following, in order:
-    1) Use yolo_loaded.yolo_predict(frame_rgb) if provided (returns list of det dicts).
-    2) Use yolo_loaded.yolo_model (Ultralytics-like): model(img)[0] → parse boxes.
-    3) If YOLO_WEIGHTS_PATH exists, try to load ultralytics.YOLO and parse.
-
-    Detection dict format (internal):
-        {'xyxy': (x1, y1, x2, y2), 'conf': float, 'cls': int, 'name': str}
-    """
     def __init__(self,
                  conf: float = YOLO_CONF_THRESH,
                  iou: float = YOLO_IOU_THRESH,
@@ -161,19 +145,19 @@ class YoloRunner:
         self.iou  = float(iou)
         self.expects_rgb = bool(expects_rgb)
         self.model = None
-        self.pred_fn = None  # external callable: pred_fn(frame_rgb) -> list[dict]
+        self.pred_fn = None
 
         # Preferred: external callable
         if yolo_loaded and hasattr(yolo_loaded, "yolo_predict") and callable(yolo_loaded.yolo_predict):
             self.pred_fn = yolo_loaded.yolo_predict
             return
 
-        # Next: external Ultralytics-like model object
+        # Next: external Ultralytics-like model
         if yolo_loaded and hasattr(yolo_loaded, "yolo_model"):
             self.model = getattr(yolo_loaded, "yolo_model")
             return
 
-        # Finally: try to load locally if weights exist
+        # Finally: local weights
         if os.path.exists(weights_path):
             try:
                 from ultralytics import YOLO  # type: ignore
@@ -186,18 +170,14 @@ class YoloRunner:
 
     def infer(self, frame_bgr: np.ndarray) -> List[Dict[str, Any]]:
         if self.pred_fn is not None:
-            # External callable expects RGB by convention
             rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
             try:
                 return list(self.pred_fn(rgb))
             except Exception as e:
                 print(f"[YOLO] External yolo_predict() failed: {e}")
                 return []
-
         if self.model is None:
             return []
-
-        # Assume Ultralytics-like model
         img_in = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB) if self.expects_rgb else frame_bgr
         try:
             results = self.model.predict(img_in, conf=self.conf, iou=self.iou, verbose=False)
@@ -206,7 +186,6 @@ class YoloRunner:
             res0 = results[0]
             dets: List[Dict[str, Any]] = []
             names = getattr(res0, "names", None) or getattr(self.model, "names", None) or {}
-            # Handle either .boxes.xyxy / .boxes.conf / .boxes.cls style
             if hasattr(res0, "boxes") and res0.boxes is not None:
                 try:
                     xyxy = res0.boxes.xyxy.cpu().numpy()
@@ -236,12 +215,10 @@ class YoloRunner:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1, cv2.LINE_AA)
         return out
 
-
 # ─────────────────────────────────────────────────────────────
-# Apply numeric overrides & internal thresholds (unchanged logic)
+# Apply numeric overrides & internal thresholds
 # ─────────────────────────────────────────────────────────────
 def _apply_numeric_overrides(monitor: CameraMonitor):
-    """Apply all constants above to the constructed monitor."""
     t = monitor.blindspot_tracker
     c = monitor.blindspot_corrector
 
@@ -254,7 +231,6 @@ def _apply_numeric_overrides(monitor: CameraMonitor):
     t.dead_val      = float(DEAD_VAL)
     t.var_thresh    = float(VAR_THRESH)
     t.min_tile_area = int(MIN_TILE_AREA)
-    # freeze_margin handled by ctor via FREEZE_MARGIN
 
     # Corrector numeric fields (optional overrides)
     if CORR_PIXEL_MASK_DECAY >= 0:
@@ -299,12 +275,10 @@ def _apply_numeric_overrides(monitor: CameraMonitor):
         return newly_deactivated
     c.deactivate_recovered_tiles = types.MethodType(_patched_deactivate, c)
 
-
 # ─────────────────────────────────────────────────────────────
-# Draw helpers (unchanged behavior)
+# Draw helpers
 # ─────────────────────────────────────────────────────────────
 def draw_blindspots(frame: np.ndarray, boxes: List[Dict[str, Any]]) -> np.ndarray:
-    """Draw persistent blindspots with short, readable labels."""
     for b in boxes:
         x1, y1, x2, y2 = b["bbox"]
         kind = b.get("kind", b.get("cause", "unknown"))
@@ -312,15 +286,14 @@ def draw_blindspots(frame: np.ndarray, boxes: List[Dict[str, Any]]) -> np.ndarra
         issue = why.get("issue", "unknown")
         conf  = why.get("issue_conf", None)
 
-        # compact extras
         extras = []
-        if "r_lap"    in why: extras.append(f"rl:{why['r_lap']:.2f}")
-        if "r_edge"   in why: extras.append(f"re:{why['r_edge']:.2f}")
-        if "r_contr"  in why: extras.append(f"rc:{why['r_contr']:.2f}")
-        if "avg_hot"  in why: extras.append(f"h:{why['avg_hot']:.2f}")
-        if "avg_dead" in why: extras.append(f"d:{why['avg_dead']:.2f}")
+        if "r_lap"     in why: extras.append(f"rl:{why['r_lap']:.2f}")
+        if "r_edge"    in why: extras.append(f"re:{why['r_edge']:.2f}")
+        if "r_contr"   in why: extras.append(f"rc:{why['r_contr']:.2f}")
+        if "avg_hot"   in why: extras.append(f"h:{why['avg_hot']:.2f}")
+        if "avg_dead"  in why: extras.append(f"d:{why['avg_dead']:.2f}")
         if "avg_stuck" in why: extras.append(f"s:{why['avg_stuck']:.2f}")
-        if conf is not None:   extras.append(f"{issue[:3]}:{conf:.2f}")
+        if conf is not None:    extras.append(f"{issue[:3]}:{conf:.2f}")
 
         color = (0, 0, 255) if issue == "camera" else (0, 165, 255)
         label = f"{kind}" + (f" ({', '.join(extras[:3])})" if extras else "")
@@ -331,7 +304,6 @@ def draw_blindspots(frame: np.ndarray, boxes: List[Dict[str, Any]]) -> np.ndarra
     return frame
 
 def draw_grid(frame: np.ndarray, grid: Tuple[int, int]=(8, 6), color: Tuple[int, int, int]=(80, 80, 80)) -> np.ndarray:
-    """Sensor-aligned tile grid overlay for quick visual alignment."""
     h, w = frame.shape[:2]
     gx, gy = grid
     step_x = max(1, w // gx)
@@ -344,12 +316,63 @@ def draw_grid(frame: np.ndarray, grid: Tuple[int, int]=(8, 6), color: Tuple[int,
         cv2.line(frame, (0, y), (w, y), color, 1)
     return frame
 
+# ─────────────────────────────────────────────────────────────
+# Helpers that use CAMFINALREAL extras
+# ─────────────────────────────────────────────────────────────
+def wholeframe_blur_cause(monitor: CameraMonitor, frame_bgr: np.ndarray) -> str:
+    """Use BlurDetector over the whole frame for a simple cause label."""
+    try:
+        gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+        mask = np.ones_like(gray, dtype=bool)
+        lap_var, cause = monitor.blur_detector.analyze_region(gray, mask)
+        if cause:
+            return str(cause)
+        if lap_var is not None and lap_var < 20:
+            return "very_blurry"
+    except Exception:
+        pass
+    return ""
+
+_last_baseline_refresh_t = 0.0
+
+def maybe_refresh_baseline(monitor: CameraMonitor, force: bool = False) -> bool:
+    """Refresh drift baseline using BaselineUpdater + DriftLogger history."""
+    global _last_baseline_refresh_t
+    now = time.time()
+    if not force and (now - _last_baseline_refresh_t) < BASELINE_REFRESH_EVERY_S:
+        return False
+    try:
+        new_base = monitor.updater.update_baseline_from_logs(monitor.logger)
+        if new_base is not None:
+            monitor.drift_detector.set_baseline(new_base)
+            _last_baseline_refresh_t = now
+            print("[Baseline] Refreshed from recent logs.")
+            return True
+    except Exception as e:
+        print(f"[Baseline] Refresh failed: {e}")
+    return False
+
+def _is_strong_camera_smudge(b: Dict[str, Any]) -> bool:
+    """Stricter gating for human actions (ack/persist/label) to avoid weak tiles."""
+    why = b.get("why", {})
+    if b.get("kind") != "smudge":
+        return False
+    if why.get("issue", "camera") != "camera":
+        return False
+    conf = float(why.get("issue_conf", 0.0))
+    rlap = float(why.get("r_lap", 1.0))
+    redg = float(why.get("r_edge", 1.0))
+    rcon = float(why.get("r_contr", 1.0))
+    # Strong either by model confidence or by very low relative texture/contrast
+    return (conf >= 0.70) or (rlap < 0.45 and redg < 0.45 and rcon < 0.60)
 
 # ─────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────
 def main():
     # 0) Init Weather
+    weather = None
+    weather_enabled = True
     try:
         weather = WeatherRunner(
             weights_path=WEATHER_WEIGHTS_PATH,
@@ -359,6 +382,7 @@ def main():
         print(f"[Weather] Loaded weights from {WEATHER_WEIGHTS_PATH}")
     except Exception as e:
         print(f"[Weather] Disabled: {e}")
+        weather_enabled = False
         weather = None
 
     # 1) Build CameraMonitor with constructor tunables
@@ -396,16 +420,22 @@ def main():
     cap.set(cv2.CAP_PROP_FPS,          int(CAP_FPS))
 
     print("🔍 Weather → Camera Blindspot + YOLO")
-    print("   q=quit | a=ack/freeze | p=persist corrections | s=label setting | r=unfreeze recovered | u=deactivate pass")
-    print("   g=toggle grid | [ / ] adjust min_score")
+    print("   h=help | q=quit | a=ack/freeze | p=persist | s=label setting")
+    print("   r=unfreeze recovered | u=deactivation pass | g=toggle grid")
+    print("   [ / ] adjust min_score | w=toggle weather | v=toggle view | b=refresh baseline | c=toggle corrections")
 
     min_score = None if INIT_MIN_SCORE < 0 else float(INIT_MIN_SCORE)
     show_grid = bool(START_WITH_GRID)
+    show_view_corrected_only = False  # v=toggle: False => annotated; True => YOLO input view
+    corrections_enabled = True        # c=toggle
 
     # FPS meter
     t0 = time.time()
     frames = 0
     fps = 0.0
+
+    # Baseline auto-refresh cadence
+    last_auto_refresh = time.time()
 
     while True:
         ret, frame = cap.read()
@@ -413,48 +443,85 @@ def main():
             print("Failed to read frame.")
             break
 
-        # (1) WEATHER — optional
-        enhanced = weather(frame) if weather is not None else frame
+        # (1) WEATHER — optional and toggleable
+        if weather is not None and weather_enabled:
+            try:
+                enhanced = weather(frame)
+            except Exception as e:
+                print(f"[Weather] Runtime error, disabling this session: {e}")
+                enhanced = frame
+                weather_enabled = False
+        else:
+            enhanced = frame
 
-        # (2) CAM preprocess_for_yolo (updates tracker, applies pixel inpaint & persistent tile fixes)
-        corrected, meta = monitor.preprocess_for_yolo(enhanced, min_score=min_score)
+        # (2) CAM — update tracker and optionally apply corrections
+        if corrections_enabled:
+            corrected, meta = monitor.preprocess_for_yolo(enhanced, min_score=min_score)
+        else:
+            # Only update tracker; do NOT apply fixes
+            monitor.blindspot_tracker.update(enhanced)
+            # synthesize meta for HUD
+            eff_min = (min_score if isinstance(min_score, float) else PERSISTENCE_HI)
+            corrected = enhanced
+            meta = {
+                "boxes": monitor.blindspot_tracker.get_persistent_boxes(min_score=eff_min),
+                "mask_nonzero": int(np.count_nonzero(monitor.blindspot_tracker.get_persistent_mask(min_score=eff_min))),
+                "health": monitor.blindspot_tracker.camera_health(),
+                "active_tiles": 0
+            }
 
-        # Optional drift signal (does NOT gate corrections) — use enhanced for analysis
-        is_drift, distance, _boxes_unused = monitor.process_frame(enhanced)
+        # Drift signal (does NOT gate corrections) — use enhanced for analysis
+        is_drift, distance, _ = monitor.process_frame(enhanced)
+
+        # Optional: attempt auto baseline refresh (uses DriftLogger history)
+        if AUTO_BASELINE_REFRESH and (time.time() - last_auto_refresh) >= BASELINE_REFRESH_EVERY_S:
+            if maybe_refresh_baseline(monitor, force=False):
+                last_auto_refresh = time.time()
 
         # (3) YOLO — run on corrected (what YOLO would actually see)
         dets = yolo.infer(corrected)
         yolo_out = yolo.draw(corrected, dets) if dets else corrected.copy()
 
-        # Annotate corrected/yolo feed with blindspots & grid
-        annotated = yolo_out
-        boxes = meta.get("boxes", [])
-        if boxes:
-            annotated = draw_blindspots(annotated, boxes)
-        if show_grid:
-            annotated = draw_grid(
-                annotated,
-                grid=(int(GRID_X), int(GRID_Y)),
-                color=(int(GRID_COLOR_B), int(GRID_COLOR_G), int(GRID_COLOR_R))
-            )
+        # Annotate display
+        display_img = yolo_out if show_view_corrected_only else yolo_out.copy()
+
+        # For hotkeys, use stricter camera-smudge selection to avoid persisting weak tiles
+        raw_boxes = meta.get("boxes", [])
+        strong_cam_boxes = [b for b in raw_boxes if _is_strong_camera_smudge(b)]
+
+        if not show_view_corrected_only:
+            if raw_boxes:
+                display_img = draw_blindspots(display_img, raw_boxes)
+            if show_grid:
+                display_img = draw_grid(
+                    display_img,
+                    grid=(int(GRID_X), int(GRID_Y)),
+                    color=(int(GRID_COLOR_B), int(GRID_COLOR_G), int(GRID_COLOR_R))
+                )
 
         # HUD
         health = meta.get("health", {})
         ms_show = f"{min_score:.2f}" if isinstance(min_score, float) else "auto"
-        status = [
-            "Drift" if is_drift else " Stable",
+        blur_cause = wholeframe_blur_cause(monitor, enhanced)
+        hud_bits = [
+            ("Drift" if is_drift else "Stable"),
             f"d={distance:.2f}",
             f"maskNZ={meta.get('mask_nonzero',0)}",
             f"tiles={health.get('tiles_flagged',0)}",
             f"active={meta.get('active_tiles',0)}",
             f"min_score={ms_show}",
-            f"fps={fps:.1f}"
+            f"fps={fps:.1f}",
+            f"corr={'on' if corrections_enabled else 'off'}"
         ]
+        if blur_cause:
+            hud_bits.append(f"blur={blur_cause}")
+        if weather is not None:
+            hud_bits.append(f"wx={'on' if weather_enabled else 'off'}")
         color = (0, 0, 255) if is_drift else (0, 200, 0)
-        cv2.putText(annotated, " | ".join(status), (10, 25),
+        cv2.putText(display_img, " | ".join(hud_bits), (10, 25),
                     cv2.FONT_HERSHEY_SIMPLEX, float(HUD_FONT_SCALE), color, 2)
 
-        cv2.imshow(WINDOW_TITLE, annotated)
+        cv2.imshow(WINDOW_TITLE, display_img)
 
         # FPS calc
         frames += 1
@@ -463,30 +530,36 @@ def main():
             fps = 15.0 / dt if dt > 0 else 0.0
             t0 = time.time()
 
-        # Hotkeys (preserved)
+        # Hotkeys
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             print("Quitting.")
             break
 
+        elif key == ord('h'):
+            print("Hotkeys:")
+            print("  q=quit | a=ack/freeze | p=persist | s=label setting")
+            print("  r=unfreeze recovered | u=deactivation pass | g=toggle grid")
+            print("  [ / ] adjust min_score | w=toggle weather | v=toggle view | b=refresh baseline | c=toggle corrections")
+
         elif key == ord('a'):
             try:
-                monitor.acknowledge_current_tiles(boxes)
-                print("Frozen (ack) current smudge tiles as camera. Re-alert only if ~15% worse.")
+                monitor.acknowledge_current_tiles(strong_cam_boxes)
+                print(f"Frozen (ack) {len(strong_cam_boxes)} strong smudge tiles as camera (re-alert if ~15% worse).")
             except Exception as e:
                 print(f"ack error: {e}")
 
         elif key == ord('p'):
             try:
-                monitor.persist_camera_corrections(boxes)
-                print("Persisted camera corrections + frozen tiles.")
+                monitor.persist_camera_corrections(strong_cam_boxes)
+                print(f"Persisted camera corrections + frozen tiles for {len(strong_cam_boxes)} strong tiles.")
             except Exception as e:
                 print(f"persist error: {e}")
 
         elif key == ord('s'):
             try:
-                monitor.label_current_as_setting(boxes)
-                print("Labeled current tiles as setting issues.")
+                monitor.label_current_as_setting([b for b in raw_boxes if b.get('kind')=='smudge'])
+                print("Labeled current smudge tiles as setting issues (LSTM training samples added).")
             except Exception as e:
                 print(f"label error: {e}")
 
@@ -502,21 +575,41 @@ def main():
             show_grid = not show_grid
             print(f"grid → {'on' if show_grid else 'off'}")
 
+        elif key == ord('w'):
+            if weather is None:
+                print("Weather not available.")
+            else:
+                weather_enabled = not weather_enabled
+                print(f"weather → {'on' if weather_enabled else 'off'}")
+
+        elif key == ord('v'):
+            show_view_corrected_only = not show_view_corrected_only
+            print(f"view → {'YOLO input only' if show_view_corrected_only else 'annotated'}")
+
+        elif key == ord('b'):
+            if maybe_refresh_baseline(monitor, force=True):
+                print("Baseline refreshed from logs.")
+            else:
+                print("Baseline refresh skipped or not enough logs yet.")
+
+        elif key == ord('c'):
+            corrections_enabled = not corrections_enabled
+            print(f"corrections → {'on' if corrections_enabled else 'off'}")
+
         elif key == ord('['):
             if min_score is None:
-                min_score = 0.85
+                min_score = 0.90  # start high in manual mode
             min_score = max(0.50, min_score - 0.05)
             print(f"min_score → {min_score:.2f}")
 
         elif key == ord(']'):
             if min_score is None:
-                min_score = 0.85
+                min_score = 0.90  # start high in manual mode
             min_score = min(0.99, min_score + 0.05)
             print(f"min_score → {min_score:.2f}")
 
     cap.release()
     cv2.destroyAllWindows()
-
 
 if __name__ == "__main__":
     main()
