@@ -1,0 +1,46 @@
+{
+  "timestamp": "20250831_164643",
+  "distance": 36.18411636352539,
+  "blindspots": [
+    {
+      "bbox": [
+        320,
+        80,
+        400,
+        160
+      ],
+      "kind": "smudge",
+      "score": 0.9944852590560913,
+      "why": {
+        "r_lap": 0.359,
+        "r_edge": 0.0,
+        "r_contr": 0.2,
+        "med_lap": 196.11,
+        "med_edge": 0.0127,
+        "med_contr": 15.67,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        400,
+        80,
+        480,
+        160
+      ],
+      "kind": "smudge",
+      "score": 0.9852928519248962,
+      "why": {
+        "r_lap": 0.477,
+        "r_edge": 0.0,
+        "r_contr": 0.198,
+        "med_lap": 196.11,
+        "med_edge": 0.0127,
+        "med_contr": 15.67,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    }
+  ]
+}
