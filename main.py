@@ -41,26 +41,26 @@ START_WITH_GRID           = 1       # 1 show grid, 0 hide
 # CameraMonitor constructor (matches CAM.CameraMonitor.__init__)
 GRID_X                    = 8
 GRID_Y                    = 6
-PERSISTENCE_HI            = 0.92    # safer (was 0.85)
+PERSISTENCE_HI            = 0.7    # safer (was 0.85)
 RATIO_LAP                 = 0.60    # safer (was 0.55)
 RATIO_EDGE                = 0.60    # safer (was 0.55)
-RATIO_CONTR               = 0.75    # safer (was 0.65)
-GLOBAL_MIN_EDGES          = 0.01
-GLOBAL_MIN_LAP            = 30.0
-FREEZE_MARGIN             = 0.85
+RATIO_CONTR               = 0.9    # safer (was 0.65)
+GLOBAL_MIN_EDGES          = 0.1
+GLOBAL_MIN_LAP            = 10.0
+FREEZE_MARGIN             = 0.8
 SEQ_LEN                   = 30
 PIXEL_MASK_DECAY          = 0.98
-HEALTHY_DEACTIVATE        = 30
+HEALTHY_DEACTIVATE        = 50
 
 # Post-init tracker overrides
-EWMA_ALPHA                = 0.05
+EWMA_ALPHA                = 0.2
 DECAY_PIXEL               = 0.98
 DECAY_TILE                = 0.95
 DELTA_THRESH              = 20
-HOT_VAL                   = 245
+HOT_VAL                   = 240
 DEAD_VAL                  = 10
 VAR_THRESH                = 2.0
-MIN_TILE_AREA             = 900     # safer (was 400)
+MIN_TILE_AREA             = 400     # safer (was 400)
 
 # Post-init corrector overrides
 CORR_PIXEL_MASK_DECAY     = -1.0    # -1 keep ctor; else 0..1
@@ -72,8 +72,8 @@ CLAHE_TILE_W              = -1
 CLAHE_TILE_H              = -1
 
 # Internal thresholds (monkey-patched)
-PERSIST_MASK_BINARY_THR   = 0.60    # less sticky inpaint (was 0.40)
-ACTIVE_TILE_HEALTHY_THR   = 0.25    # faster deactivation (was 0.15)
+PERSIST_MASK_BINARY_THR   = 0.70    # less sticky inpaint (was 0.40)
+ACTIVE_TILE_HEALTHY_THR   = 0.15    # faster deactivation (was 0.15)
 
 # HUD tweak (cosmetic)
 GRID_COLOR_R              = 80
@@ -84,10 +84,10 @@ HUD_FONT_SCALE            = 0.65
 # Weather model config
 WEATHER_WEIGHTS_PATH      = "generator.pth"
 WEATHER_INPUT_SIZE        = 512
-WEATHER_MEDIAN_KERNEL     = 3
+WEATHER_MEDIAN_KERNEL     = 1
 
 # YOLO config
-YOLO_WEIGHTS_PATH         = "yolo12s.pt"  # used if auto-loading via Ultralytics
+YOLO_WEIGHTS_PATH         = "yolov8n.pt"  # used if auto-loading via Ultralytics
 YOLO_CONF_THRESH          = 0.25
 YOLO_IOU_THRESH           = 0.45
 YOLO_EXPECTS_RGB          = True
@@ -521,7 +521,10 @@ def main():
         cv2.putText(display_img, " | ".join(hud_bits), (10, 25),
                     cv2.FONT_HERSHEY_SIMPLEX, float(HUD_FONT_SCALE), color, 2)
 
-        cv2.imshow(WINDOW_TITLE, display_img)
+        dets = yolo.infer(frame)
+        yolo_out = yolo.draw(frame, dets) if dets else frame.copy()
+        combined_display = np.hstack([yolo_out, display_img])
+        cv2.imshow(WINDOW_TITLE, combined_display)
 
         # FPS calc
         frames += 1
@@ -535,6 +538,8 @@ def main():
         if key == ord('q'):
             print("Quitting.")
             break
+
+        
 
         elif key == ord('h'):
             print("Hotkeys:")
