@@ -1,0 +1,106 @@
+{
+  "timestamp": "20250902_205306",
+  "distance": 19.838159561157227,
+  "blindspots": [
+    {
+      "bbox": [
+        0,
+        110,
+        80,
+        165
+      ],
+      "kind": "smudge",
+      "score": 0.928261935710907,
+      "why": {
+        "r_lap": 0.43,
+        "r_edge": 0.291,
+        "r_contr": 0.157,
+        "med_lap": 277.53,
+        "med_edge": 0.0359,
+        "med_contr": 20.52,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        80,
+        110,
+        160,
+        165
+      ],
+      "kind": "smudge",
+      "score": 0.9150263667106628,
+      "why": {
+        "r_lap": 0.0,
+        "r_edge": 0.0,
+        "r_contr": 0.0,
+        "med_lap": 277.53,
+        "med_edge": 0.0359,
+        "med_contr": 20.52,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        160,
+        110,
+        240,
+        165
+      ],
+      "kind": "smudge",
+      "score": 0.8958472609519958,
+      "why": {
+        "r_lap": 0.0,
+        "r_edge": 0.0,
+        "r_contr": 0.0,
+        "med_lap": 277.53,
+        "med_edge": 0.0359,
+        "med_contr": 20.52,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        240,
+        110,
+        320,
+        165
+      ],
+      "kind": "smudge",
+      "score": 0.9311972856521606,
+      "why": {
+        "r_lap": 0.0,
+        "r_edge": 0.0,
+        "r_contr": 0.0,
+        "med_lap": 277.53,
+        "med_edge": 0.0359,
+        "med_contr": 20.52,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        320,
+        110,
+        400,
+        165
+      ],
+      "kind": "smudge",
+      "score": 0.8966471552848816,
+      "why": {
+        "r_lap": 0.012,
+        "r_edge": 0.0,
+        "r_contr": 0.043,
+        "med_lap": 277.53,
+        "med_edge": 0.0359,
+        "med_contr": 20.52,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    }
+  ]
+}

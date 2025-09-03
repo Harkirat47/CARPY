@@ -1,0 +1,206 @@
+{
+  "timestamp": "20250902_205118",
+  "distance": 25.590120315551758,
+  "blindspots": [
+    {
+      "bbox": [
+        80,
+        55,
+        160,
+        110
+      ],
+      "kind": "smudge",
+      "score": 0.9450995326042175,
+      "why": {
+        "r_lap": 0.038,
+        "r_edge": 0.0,
+        "r_contr": 0.718,
+        "med_lap": 674.48,
+        "med_edge": 0.0315,
+        "med_contr": 17.18,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        160,
+        55,
+        240,
+        110
+      ],
+      "kind": "smudge",
+      "score": 0.9458298087120056,
+      "why": {
+        "r_lap": 0.05,
+        "r_edge": 0.0,
+        "r_contr": 0.78,
+        "med_lap": 674.48,
+        "med_edge": 0.0315,
+        "med_contr": 17.18,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        240,
+        110,
+        320,
+        165
+      ],
+      "kind": "smudge",
+      "score": 0.9549798965454102,
+      "why": {
+        "r_lap": 0.11,
+        "r_edge": 0.188,
+        "r_contr": 0.401,
+        "med_lap": 674.48,
+        "med_edge": 0.0315,
+        "med_contr": 17.18,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        320,
+        110,
+        400,
+        165
+      ],
+      "kind": "smudge",
+      "score": 0.9558765888214111,
+      "why": {
+        "r_lap": 0.254,
+        "r_edge": 0.253,
+        "r_contr": 0.434,
+        "med_lap": 674.48,
+        "med_edge": 0.0315,
+        "med_contr": 17.18,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        160,
+        165,
+        240,
+        220
+      ],
+      "kind": "smudge",
+      "score": 0.8512106537818909,
+      "why": {
+        "r_lap": 0.065,
+        "r_edge": 0.0,
+        "r_contr": 0.218,
+        "med_lap": 674.48,
+        "med_edge": 0.0315,
+        "med_contr": 17.18,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        240,
+        165,
+        320,
+        220
+      ],
+      "kind": "smudge",
+      "score": 0.954981803894043,
+      "why": {
+        "r_lap": 0.026,
+        "r_edge": 0.0,
+        "r_contr": 0.187,
+        "med_lap": 674.48,
+        "med_edge": 0.0315,
+        "med_contr": 17.18,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        160,
+        275,
+        240,
+        335
+      ],
+      "kind": "smudge",
+      "score": 0.999999463558197,
+      "why": {
+        "r_lap": 0.3,
+        "r_edge": 0.324,
+        "r_contr": 0.619,
+        "med_lap": 674.48,
+        "med_edge": 0.0315,
+        "med_contr": 17.18,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        240,
+        275,
+        320,
+        335
+      ],
+      "kind": "smudge",
+      "score": 0.9999841451644897,
+      "why": {
+        "r_lap": 0.371,
+        "r_edge": 0.377,
+        "r_contr": 0.571,
+        "med_lap": 674.48,
+        "med_edge": 0.0315,
+        "med_contr": 17.18,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        400,
+        275,
+        480,
+        335
+      ],
+      "kind": "smudge",
+      "score": 0.9707285165786743,
+      "why": {
+        "r_lap": 0.312,
+        "r_edge": 0.536,
+        "r_contr": 0.542,
+        "med_lap": 674.48,
+        "med_edge": 0.0315,
+        "med_contr": 17.18,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        480,
+        275,
+        560,
+        335
+      ],
+      "kind": "smudge",
+      "score": 0.9733426570892334,
+      "why": {
+        "r_lap": 0.323,
+        "r_edge": 0.41,
+        "r_contr": 0.303,
+        "med_lap": 674.48,
+        "med_edge": 0.0315,
+        "med_contr": 17.18,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    }
+  ]
+}
