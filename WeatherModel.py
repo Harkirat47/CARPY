@@ -185,6 +185,10 @@ def remove_haze(HazeImg, airlightEstimation_windowSze=15, boundaryConstraint_win
     HazeCorrectedImg, HazeTransmissionMap = Dehazer.remove_haze(HazeImg)
     return HazeCorrectedImg, HazeTransmissionMap
 
+def process_frame(frame):
+    corrected_frame = remove_haze(frame, showHazeTransmissionMap=False)
+    return corrected_frame
+
 if __name__ == '__main__':
     cap = cv2.VideoCapture(0)
 
@@ -210,7 +214,7 @@ if __name__ == '__main__':
         haze_map_display = (haze_map * 255).astype(np.uint8)
         haze_map_display_bgr = cv2.cvtColor(haze_map_display, cv2.COLOR_GRAY2BGR)
 
-        combined_view = np.hstack([frame, haze_map_display_bgr, haze_corrected_img])
+        combined_view = np.hstack([frame, haze_corrected_img])
 
         cv2.imshow("Original | Haze Map | Dehazed (Press 'q' to quit)", combined_view)
 

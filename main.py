@@ -4,7 +4,6 @@ import os
 import cv2
 import time
 import types
-import torch
 import numpy as np
 from typing import List, Tuple, Dict, Any
 
@@ -16,9 +15,8 @@ from CAMFINALREAL import CameraMonitor  # unchanged
 # ─────────────────────────────────────────────────────────────
 # REQUIRED: import Weather model parts exactly from your file
 # ─────────────────────────────────────────────────────────────
-# WeatherModel.py must define: Generator, MedianFilterTransform, process_frame
-from torchvision import transforms
-from WeatherModel import Generator, MedianFilterTransform, process_frame
+# WeatherModel.py must define: process_frame
+from WeatherModel import process_frame
 
 # Optional shim for externally loaded YOLO
 try:
@@ -81,11 +79,6 @@ GRID_COLOR_G              = 80
 GRID_COLOR_B              = 80
 HUD_FONT_SCALE            = 0.65
 
-# Weather model config
-WEATHER_WEIGHTS_PATH      = "generator.pth"
-WEATHER_INPUT_SIZE        = 512
-WEATHER_MEDIAN_KERNEL     = 1
-
 # YOLO config
 YOLO_WEIGHTS_PATH         = "yolov8n.pt"  # used if auto-loading via Ultralytics
 YOLO_CONF_THRESH          = 0.25
@@ -100,37 +93,19 @@ BASELINE_REFRESH_EVERY_S  = 120.0    # minimum seconds between auto-refresh atte
 WINDOW_TITLE              = "Weather → Camera Blindspot Monitor → YOLO (Press h for help)"
 
 # ─────────────────────────────────────────────────────────────
-# Weather init & runner (wraps your WeatherModel.process_frame)
+# Weather init & runner (wraps WeatherModel.process_frame)
 # ─────────────────────────────────────────────────────────────
 class WeatherRunner:
-    def __init__(self,
-                 weights_path: str = WEATHER_WEIGHTS_PATH,
-                 input_size: int = WEATHER_INPUT_SIZE,
-                 median_kernel: int = WEATHER_MEDIAN_KERNEL,
-                 device: torch.device | None = None):
-        self.device = device or (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
-        self.model = Generator().to(self.device)
-        if not os.path.exists(weights_path):
-            raise FileNotFoundError(
-                f"Weather model weights not found at '{weights_path}'. "
-                f"Place your trained weights there or update WEATHER_WEIGHTS_PATH."
-            )
-        self.model.load_state_dict(torch.load(weights_path, map_location=self.device))
-        self.model.eval()
-        self.median_filter = MedianFilterTransform(kernel_size=int(median_kernel))
-        self.transform = transforms.Compose([
-            transforms.Resize((int(input_size), int(input_size))),
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ])
+    """
+    Wrapper for the classical CV-based dehazing algorithm in WeatherModel.py.
+    This replaces the original PyTorch-based implementation.
+    """
+    def __init__(self):
+        pass
 
-    def __call__(self, frame_bgr: np.ndarray) -> np.ndarray:
-        h, w = frame_bgr.shape[:2]
-        with torch.no_grad():
-            out_bgr = process_frame(self.model, frame_bgr, self.device, self.median_filter, self.transform)
-        if out_bgr.shape[:2] != (h, w):
-            out_bgr = cv2.resize(out_bgr, (w, h), interpolation=cv2.INTER_LINEAR)
-        return out_bgr
+    def __call__(self, frame_bgr: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        # The process_frame function from the provided WeatherModel.py is called directly.
+        return process_frame(frame_bgr)
 
 # ─────────────────────────────────────────────────────────────
 # YOLO init & runner (external or auto-load)
@@ -374,12 +349,7 @@ def main():
     weather = None
     weather_enabled = True
     try:
-        weather = WeatherRunner(
-            weights_path=WEATHER_WEIGHTS_PATH,
-            input_size=WEATHER_INPUT_SIZE,
-            median_kernel=WEATHER_MEDIAN_KERNEL
-        )
-        print(f"[Weather] Loaded weights from {WEATHER_WEIGHTS_PATH}")
+        weather = WeatherRunner()
     except Exception as e:
         print(f"[Weather] Disabled: {e}")
         weather_enabled = False
@@ -446,7 +416,8 @@ def main():
         # (1) WEATHER — optional and toggleable
         if weather is not None and weather_enabled:
             try:
-                enhanced = weather(frame)
+                # process_frame from WeatherModel returns (corrected_image, haze_map)
+                enhanced, _ = weather(frame)
             except Exception as e:
                 print(f"[Weather] Runtime error, disabling this session: {e}")
                 enhanced = frame
