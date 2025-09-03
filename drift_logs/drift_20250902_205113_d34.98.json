@@ -1,0 +1,206 @@
+{
+  "timestamp": "20250902_205113",
+  "distance": 34.98458480834961,
+  "blindspots": [
+    {
+      "bbox": [
+        80,
+        55,
+        160,
+        110
+      ],
+      "kind": "smudge",
+      "score": 0.9965599179267883,
+      "why": {
+        "r_lap": 0.047,
+        "r_edge": 0.0,
+        "r_contr": 0.612,
+        "med_lap": 545.65,
+        "med_edge": 0.0295,
+        "med_contr": 18.71,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        160,
+        55,
+        240,
+        110
+      ],
+      "kind": "smudge",
+      "score": 0.9999628067016602,
+      "why": {
+        "r_lap": 0.047,
+        "r_edge": 0.0,
+        "r_contr": 0.555,
+        "med_lap": 545.65,
+        "med_edge": 0.0295,
+        "med_contr": 18.71,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        240,
+        110,
+        320,
+        165
+      ],
+      "kind": "smudge",
+      "score": 0.898284912109375,
+      "why": {
+        "r_lap": 0.043,
+        "r_edge": 0.331,
+        "r_contr": 2.326,
+        "med_lap": 545.65,
+        "med_edge": 0.0295,
+        "med_contr": 18.71,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        320,
+        110,
+        400,
+        165
+      ],
+      "kind": "smudge",
+      "score": 0.9024625420570374,
+      "why": {
+        "r_lap": 0.166,
+        "r_edge": 0.185,
+        "r_contr": 1.509,
+        "med_lap": 545.65,
+        "med_edge": 0.0295,
+        "med_contr": 18.71,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        80,
+        165,
+        160,
+        220
+      ],
+      "kind": "smudge",
+      "score": 0.7316974401473999,
+      "why": {
+        "r_lap": 0.469,
+        "r_edge": 0.886,
+        "r_contr": 0.386,
+        "med_lap": 545.65,
+        "med_edge": 0.0295,
+        "med_contr": 18.71,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        240,
+        165,
+        320,
+        220
+      ],
+      "kind": "smudge",
+      "score": 0.898293673992157,
+      "why": {
+        "r_lap": 0.035,
+        "r_edge": 0.085,
+        "r_contr": 1.994,
+        "med_lap": 545.65,
+        "med_edge": 0.0295,
+        "med_contr": 18.71,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        160,
+        275,
+        240,
+        335
+      ],
+      "kind": "smudge",
+      "score": 0.999999463558197,
+      "why": {
+        "r_lap": 0.38,
+        "r_edge": 0.346,
+        "r_contr": 0.829,
+        "med_lap": 545.65,
+        "med_edge": 0.0295,
+        "med_contr": 18.71,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        240,
+        275,
+        320,
+        335
+      ],
+      "kind": "smudge",
+      "score": 0.9999262690544128,
+      "why": {
+        "r_lap": 0.459,
+        "r_edge": 0.388,
+        "r_contr": 0.54,
+        "med_lap": 545.65,
+        "med_edge": 0.0295,
+        "med_contr": 18.71,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        400,
+        275,
+        480,
+        335
+      ],
+      "kind": "smudge",
+      "score": 0.8636248707771301,
+      "why": {
+        "r_lap": 0.373,
+        "r_edge": 0.572,
+        "r_contr": 0.482,
+        "med_lap": 545.65,
+        "med_edge": 0.0295,
+        "med_contr": 18.71,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        480,
+        275,
+        560,
+        335
+      ],
+      "kind": "smudge",
+      "score": 0.8758037090301514,
+      "why": {
+        "r_lap": 0.397,
+        "r_edge": 0.431,
+        "r_contr": 0.281,
+        "med_lap": 545.65,
+        "med_edge": 0.0295,
+        "med_contr": 18.71,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "timestamp": "20250902_205301",
+  "distance": 22.916019439697266,
+  "blindspots": [
+    {
+      "bbox": [
+        240,
+        110,
+        320,
+        165
+      ],
+      "kind": "smudge",
+      "score": 0.7107021808624268,
+      "why": {
+        "r_lap": 0.0,
+        "r_edge": 0.0,
+        "r_contr": 0.0,
+        "med_lap": 527.47,
+        "med_edge": 0.0799,
+        "med_contr": 27.71,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        320,
+        165,
+        400,
+        220
+      ],
+      "kind": "smudge",
+      "score": 0.9751057624816895,
+      "why": {
+        "r_lap": 0.183,
+        "r_edge": 0.216,
+        "r_contr": 0.832,
+        "med_lap": 527.47,
+        "med_edge": 0.0799,
+        "med_contr": 27.71,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        400,
+        165,
+        480,
+        220
+      ],
+      "kind": "smudge",
+      "score": 0.9624758362770081,
+      "why": {
+        "r_lap": 0.049,
+        "r_edge": 0.211,
+        "r_contr": 0.576,
+        "med_lap": 527.47,
+        "med_edge": 0.0799,
+        "med_contr": 27.71,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        480,
+        275,
+        560,
+        335
+      ],
+      "kind": "smudge",
+      "score": 0.999999463558197,
+      "why": {
+        "r_lap": 0.25,
+        "r_edge": 0.177,
+        "r_contr": 0.574,
+        "med_lap": 527.47,
+        "med_edge": 0.0799,
+        "med_contr": 27.71,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        560,
+        275,
+        640,
+        335
+      ],
+      "kind": "smudge",
+      "score": 0.940880298614502,
+      "why": {
+        "r_lap": 0.482,
+        "r_edge": 0.258,
+        "r_contr": 0.618,
+        "med_lap": 527.47,
+        "med_edge": 0.0799,
+        "med_contr": 27.71,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    }
+  ]
+}

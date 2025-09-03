@@ -1,0 +1,246 @@
+{
+  "timestamp": "20250902_205209",
+  "distance": 26.722326278686523,
+  "blindspots": [
+    {
+      "bbox": [
+        80,
+        55,
+        160,
+        110
+      ],
+      "kind": "smudge",
+      "score": 0.9974024891853333,
+      "why": {
+        "r_lap": 0.06,
+        "r_edge": 0.0,
+        "r_contr": 0.513,
+        "med_lap": 616.69,
+        "med_edge": 0.0467,
+        "med_contr": 19.67,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        160,
+        55,
+        240,
+        110
+      ],
+      "kind": "smudge",
+      "score": 0.9869753122329712,
+      "why": {
+        "r_lap": 0.051,
+        "r_edge": 0.0,
+        "r_contr": 0.59,
+        "med_lap": 616.69,
+        "med_edge": 0.0467,
+        "med_contr": 19.67,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        80,
+        110,
+        160,
+        165
+      ],
+      "kind": "smudge",
+      "score": 0.9992402195930481,
+      "why": {
+        "r_lap": 0.08,
+        "r_edge": 0.063,
+        "r_contr": 0.19,
+        "med_lap": 616.69,
+        "med_edge": 0.0467,
+        "med_contr": 19.67,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        160,
+        110,
+        240,
+        165
+      ],
+      "kind": "smudge",
+      "score": 0.9869698882102966,
+      "why": {
+        "r_lap": 0.489,
+        "r_edge": 0.36,
+        "r_contr": 0.376,
+        "med_lap": 616.69,
+        "med_edge": 0.0467,
+        "med_contr": 19.67,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        240,
+        110,
+        320,
+        165
+      ],
+      "kind": "smudge",
+      "score": 0.999997615814209,
+      "why": {
+        "r_lap": 0.093,
+        "r_edge": 0.058,
+        "r_contr": 0.245,
+        "med_lap": 616.69,
+        "med_edge": 0.0467,
+        "med_contr": 19.67,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        320,
+        110,
+        400,
+        165
+      ],
+      "kind": "smudge",
+      "score": 0.9175704717636108,
+      "why": {
+        "r_lap": 0.575,
+        "r_edge": 0.199,
+        "r_contr": 0.427,
+        "med_lap": 616.69,
+        "med_edge": 0.0467,
+        "med_contr": 19.67,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        400,
+        220,
+        480,
+        275
+      ],
+      "kind": "smudge",
+      "score": 0.7510461211204529,
+      "why": {
+        "r_lap": 0.267,
+        "r_edge": 0.452,
+        "r_contr": 0.578,
+        "med_lap": 616.69,
+        "med_edge": 0.0467,
+        "med_contr": 19.67,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        480,
+        220,
+        560,
+        275
+      ],
+      "kind": "smudge",
+      "score": 0.7565549612045288,
+      "why": {
+        "r_lap": 0.236,
+        "r_edge": 0.574,
+        "r_contr": 0.625,
+        "med_lap": 616.69,
+        "med_edge": 0.0467,
+        "med_contr": 19.67,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        160,
+        275,
+        240,
+        335
+      ],
+      "kind": "smudge",
+      "score": 0.999999463558197,
+      "why": {
+        "r_lap": 0.318,
+        "r_edge": 0.223,
+        "r_contr": 0.433,
+        "med_lap": 616.69,
+        "med_edge": 0.0467,
+        "med_contr": 19.67,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        240,
+        275,
+        320,
+        335
+      ],
+      "kind": "smudge",
+      "score": 0.9999064207077026,
+      "why": {
+        "r_lap": 0.377,
+        "r_edge": 0.254,
+        "r_contr": 0.345,
+        "med_lap": 616.69,
+        "med_edge": 0.0467,
+        "med_contr": 19.67,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        400,
+        275,
+        480,
+        335
+      ],
+      "kind": "smudge",
+      "score": 0.9760811924934387,
+      "why": {
+        "r_lap": 0.425,
+        "r_edge": 0.437,
+        "r_contr": 0.541,
+        "med_lap": 616.69,
+        "med_edge": 0.0467,
+        "med_contr": 19.67,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    },
+    {
+      "bbox": [
+        480,
+        275,
+        560,
+        335
+      ],
+      "kind": "smudge",
+      "score": 0.999999463558197,
+      "why": {
+        "r_lap": 0.311,
+        "r_edge": 0.241,
+        "r_contr": 0.33,
+        "med_lap": 616.69,
+        "med_edge": 0.0467,
+        "med_contr": 19.67,
+        "issue": "camera",
+        "issue_conf": 0.55
+      }
+    }
+  ]
+}

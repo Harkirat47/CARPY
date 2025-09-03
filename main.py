@@ -24,10 +24,18 @@ try:
 except Exception:
     yolo_loaded = None
 
+# Video processing
+LIMIT_RESOLUTION          = True    # True to downscale large videos, False to use original size
+MAX_WIDTH                 = 640     # Max width for downscaled video
+MAX_HEIGHT                = 480     # Max height for downscaled video
+
 # ─────────────────────────────────────────────────────────────
 # TUNABLE VALUES (EDIT NUMBERS/PATHS ONLY)
 # ─────────────────────────────────────────────────────────────
-# Camera & runner
+# Video source: Set a path to process a file, or set to None to use a live camera.
+VIDEO_FILE_PATH           = "test.mov"
+
+# Camera & runner (used if VIDEO_FILE_PATH is None)
 CAM_INDEX                 = 1
 FALLBACK_INDEX            = 0
 CAP_WIDTH                 = 640
@@ -355,6 +363,7 @@ def main():
     weather_enabled = True
     try:
         weather = WeatherRunner()
+        print("[Weather] Dehazing model ready.")
     except Exception as e:
         print(f"[Weather] Disabled: {e}")
         weather_enabled = False
@@ -385,14 +394,28 @@ def main():
     else:
         print("[YOLO] Not available; running without detections.")
 
-    # 4) Camera open
-    cap = cv2.VideoCapture(int(CAM_INDEX))
-    if not cap or not cap.isOpened():
-        cap = cv2.VideoCapture(int(FALLBACK_INDEX))
+    # 4) Open video source (file or camera)
+    cap = None
+    if VIDEO_FILE_PATH:
+        print(f"Opening video file: {VIDEO_FILE_PATH}")
+        if not os.path.exists(VIDEO_FILE_PATH):
+            print(f"Error: Video file not found at '{VIDEO_FILE_PATH}'")
+            return
+        cap = cv2.VideoCapture(VIDEO_FILE_PATH)
+    else:
+        print(f"Opening camera index: {CAM_INDEX}")
+        cap = cv2.VideoCapture(int(CAM_INDEX))
+        if not cap or not cap.isOpened():
+            cap = cv2.VideoCapture(int(FALLBACK_INDEX))
+        
+        # Set camera properties
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH,  int(CAP_WIDTH))
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(CAP_HEIGHT))
+        cap.set(cv2.CAP_PROP_FPS,          int(CAP_FPS))
 
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH,  int(CAP_WIDTH))
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(CAP_HEIGHT))
-    cap.set(cv2.CAP_PROP_FPS,          int(CAP_FPS))
+    if not cap or not cap.isOpened():
+        print("Error: Could not open video source.")
+        return
 
     print("🔍 Weather → Camera Blindspot + YOLO")
     print("   h=help | q=quit | a=ack/freeze | p=persist | s=label setting")
@@ -415,13 +438,21 @@ def main():
     while True:
         ret, frame = cap.read()
         if not ret:
-            print("Failed to read frame.")
+            print("End of video file or failed to grab frame.")
             break
+
+        if LIMIT_RESOLUTION:
+            h, w = frame.shape[:2]
+            if w > MAX_WIDTH or h > MAX_HEIGHT:
+                ratio = min(MAX_WIDTH / w, MAX_HEIGHT / h)
+                new_dim = (int(w * ratio), int(h * ratio))
+                frame = cv2.resize(frame, new_dim, interpolation=cv2.INTER_AREA)
 
         # (1) WEATHER — optional and toggleable
         if weather is not None and weather_enabled:
             try:
                 # process_frame from WeatherModel returns (corrected_image, haze_map)
+                # We only need the corrected image for the next pipeline stage.
                 enhanced, _ = weather(frame)
             except Exception as e:
                 print(f"[Weather] Runtime error, disabling this session: {e}")
