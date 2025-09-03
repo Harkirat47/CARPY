@@ -1,165 +1,226 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torchvision import transforms
-from PIL import Image
-import os
+# Source code found here: https://github.com/Utkarsh-Deshmukh/Single-Image-Dehazing-Python/blob/master/image_dehazer/__init__.py
+# All code for the file below found in the link above
+
 import cv2
 import numpy as np
+import copy
 
-class MedianFilterTransform:
-    def __init__(self, kernel_size=3):
-        self.kernel_size = kernel_size
+class image_dehazer():
+    def __init__(self, airlightEstimation_windowSze=15, boundaryConstraint_windowSze=3, C0=20, C1=300,
+                 regularize_lambda=0.1, sigma=0.5, delta=0.85, showHazeTransmissionMap=True):
+        self.airlightEstimation_windowSze = airlightEstimation_windowSze
+        self.boundaryConstraint_windowSze = boundaryConstraint_windowSze
+        self.C0 = C0
+        self.C1 = C1
+        self.regularize_lambda = regularize_lambda
+        self.sigma = sigma
+        self.delta = delta
+        self.showHazeTransmissionMap = showHazeTransmissionMap
+        self._A = []
+        self._Transmission = []
+        self._WFun = []
 
-    def __call__(self, img):
-        np_img = np.array(img)
-        if len(np_img.shape) == 3:
-            np_img = cv2.cvtColor(np_img, cv2.COLOR_RGB2BGR)
-        filtered_img = cv2.medianBlur(np_img, self.kernel_size)
-        if len(filtered_img.shape) == 3:
-            filtered_img = cv2.cvtColor(filtered_img, cv2.COLOR_BGR2RGB)
-        return Image.fromarray(filtered_img)
+    def __AirlightEstimation(self, HazeImg):
+        self._A = []
+        if len(HazeImg.shape) == 3:
+            for ch in range(HazeImg.shape[2]):
+                kernel = np.ones((self.airlightEstimation_windowSze, self.airlightEstimation_windowSze), np.uint8)
+                minImg = cv2.erode(HazeImg[:, :, ch], kernel)
+                self._A.append(int(minImg.max()))
+        else:
+            kernel = np.ones((self.airlightEstimation_windowSze, self.airlightEstimation_windowSze), np.uint8)
+            minImg = cv2.erode(HazeImg, kernel)
+            self._A.append(int(minImg.max()))
 
-class UNetDown(nn.Module):
-    def __init__(self, in_channels, out_channels, normalize=True, dropout=0.0):
-        super(UNetDown, self).__init__()
-        layers = [nn.Conv2d(in_channels, out_channels, kernel_size=4, stride=2, padding=1, bias=False)]
-        if normalize:
-            layers.append(nn.InstanceNorm2d(out_channels))
-        layers.append(nn.LeakyReLU(0.2))
-        if dropout:
-            layers.append(nn.Dropout(dropout))
-        self.model = nn.Sequential(*layers)
-
-    def forward(self, x):
-        return self.model(x)
-
-class UNetUp(nn.Module):
-    def __init__(self, in_channels, out_channels, dropout=0.0):
-        super(UNetUp, self).__init__()
-        layers = [
-            nn.ConvTranspose2d(in_channels, out_channels, kernel_size=4, stride=2, padding=1, bias=False),
-            nn.InstanceNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-        ]
-        if dropout:
-            layers.append(nn.Dropout(dropout))
-        self.model = nn.Sequential(*layers)
-
-    def forward(self, x, skip_input):
-        x = self.model(x)
-        x = F.interpolate(x, size=skip_input.shape[2:], mode='bilinear', align_corners=False)
-        x = torch.cat((x, skip_input), 1)
-        return x
-
-class Generator(nn.Module):
-    def __init__(self, in_channels=3, out_channels=3):
-        super(Generator, self).__init__()
-        self.down1 = UNetDown(in_channels, 64, normalize=False)
-        self.down2 = UNetDown(64, 128)
-        self.down3 = UNetDown(128, 256)
-        self.down4 = UNetDown(256, 512, dropout=0.5)
-        self.down5 = UNetDown(512, 512, dropout=0.5)
-        self.down6 = UNetDown(512, 512, dropout=0.5)
-        self.up1 = UNetUp(512, 512, dropout=0.5)
-        self.up2 = UNetUp(1024, 512, dropout=0.5)
-        self.up3 = UNetUp(1024, 256)
-        self.up4 = UNetUp(512, 128)
-        self.up5 = UNetUp(256, 64)
-        self.final_t = nn.Sequential(
-            nn.Upsample(scale_factor=2),
-            nn.Conv2d(128, 1, kernel_size=3, padding=1),
-            nn.Sigmoid()
-        )
-        self.final_A = nn.Sequential(
-            nn.AdaptiveAvgPool2d(1),
-            nn.Conv2d(512, 512, 1),
-            nn.LeakyReLU(0.2, True),
-            nn.Conv2d(512, 3, 1),
-            nn.Sigmoid()
-        )
-
-    def forward(self, x):
-        d1 = self.down1(x)
-        d2 = self.down2(d1)
-        d3 = self.down3(d2)
-        d4 = self.down4(d3)
-        d5 = self.down5(d4)
-        A = self.final_A(d5)
-        d6 = self.down6(d5)
-        u1 = self.up1(d6, d5)
-        u2 = self.up2(u1, d4)
-        u3 = self.up3(u2, d3)
-        u4 = self.up4(u3, d2)
-        u5 = self.up5(u4, d1)
-        t = self.final_t(u5)
-        J = (x - A * (1 - t)) / (t + 1e-8)
-        return J, t, A
-
-def process_frame(model, frame, device, median_filter, transform):
-    original_height, original_width, _ = frame.shape
-
-    image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-    image_filtered = median_filter(image)
-    input_tensor = transform(image_filtered).unsqueeze(0).to(device)
-
-    with torch.no_grad():
-        output_tensor, _, _ = model(input_tensor)
-
-    output_tensor = (output_tensor * 0.5) + 0.5
-    output_tensor = torch.clamp(output_tensor, 0, 1)
-    output_tensor = output_tensor.squeeze(0).cpu()
-    output_array = output_tensor.permute(1, 2, 0).numpy()
-    output_frame_bgr = cv2.cvtColor((output_array * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
-
-    output_frame_resized = cv2.resize(output_frame_bgr, (original_width, original_height))
-
-    return output_frame_resized
-
-if __name__ == "__main__":
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-
-    # Define image size variable for consistency
-    image_size = (480, 640)
-
-    model = Generator().to(device)
-    model_path = "generator.pth"
-
-    if not os.path.exists(model_path):
-        print(f"Error: Model file not found at '{model_path}'")
-        print("Please ensure your trained 'generator_640x480.pth' is in the same directory.")
-    else:
-        model.load_state_dict(torch.load(model_path, map_location=device))
-        model.eval()
-        print("Model loaded successfully.")
-
-        median_filter = MedianFilterTransform(kernel_size=3)
-        transform = transforms.Compose([
-            transforms.Resize(image_size),
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        ])
-
-        cap = cv2.VideoCapture(0) # Use 0 for the default camera
-        if not cap.isOpened():
-            print("Error: Could not open camera.")
-            exit()
-
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                print("Failed to grab frame. Exiting...")
-                break
-
-            defogged_frame = process_frame(model, frame, device, median_filter, transform)
-          
-            combined_display = np.hstack([frame, defogged_frame])
+    def __BoundCon(self, HazeImg):
+        if len(HazeImg.shape) == 3:
+            t_b = np.maximum((self._A[0] - HazeImg[:, :, 0].astype(float)) / (self._A[0] - self.C0 + 1e-6),
+                             (HazeImg[:, :, 0].astype(float) - self._A[0]) / (self.C1 - self._A[0] + 1e-6))
+            t_g = np.maximum((self._A[1] - HazeImg[:, :, 1].astype(float)) / (self._A[1] - self.C0 + 1e-6),
+                             (HazeImg[:, :, 1].astype(float) - self._A[1]) / (self.C1 - self._A[1] + 1e-6))
+            t_r = np.maximum((self._A[2] - HazeImg[:, :, 2].astype(float)) / (self._A[2] - self.C0 + 1e-6),
+                             (HazeImg[:, :, 2].astype(float) - self._A[2]) / (self.C1 - self._A[2] + 1e-6))
             
-            cv2.imshow('Original vs. Defogged - Press Q to Quit', combined_display)
+            MaxVal = np.maximum(t_b, t_g)
+            MaxVal = np.maximum(MaxVal, t_r)
 
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+            self._Transmission = np.minimum(MaxVal, 1)
+        else:
+            self._Transmission = np.maximum((self._A[0] - HazeImg.astype(float)) / (self._A[0] - self.C0 + 1e-6),
+                                            (HazeImg.astype(float) - self._A[0]) / (self.C1 - self._A[0] + 1e-6))
+            self._Transmission = np.minimum(self._Transmission, 1)
 
-        cap.release()
-        cv2.destroyAllWindows()
+        kernel = np.ones((self.boundaryConstraint_windowSze, self.boundaryConstraint_windowSze), float)
+        self._Transmission = cv2.morphologyEx(self._Transmission, cv2.MORPH_CLOSE, kernel=kernel)
+
+    def __LoadFilterBank(self):
+        KirschFilters = []
+        KirschFilters.append(np.array([[-3, -3, -3], [-3, 0, 5], [-3, 5, 5]]))
+        KirschFilters.append(np.array([[-3, -3, -3], [-3, 0, -3], [5, 5, 5]]))
+        KirschFilters.append(np.array([[-3, -3, -3], [5, 0, -3], [5, 5, -3]]))
+        KirschFilters.append(np.array([[5, -3, -3], [5, 0, -3], [5, -3, -3]]))
+        KirschFilters.append(np.array([[5, 5, -3], [5, 0, -3], [-3, -3, -3]]))
+        KirschFilters.append(np.array([[5, 5, 5], [-3, 0, -3], [-3, -3, -3]]))
+        KirschFilters.append(np.array([[-3, 5, 5], [-3, 0, 5], [-3, -3, -3]]))
+        KirschFilters.append(np.array([[-3, -3, 5], [-3, 0, 5], [-3, -3, 5]]))
+        KirschFilters.append(np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]]))
+        return KirschFilters
+
+    def __CalculateWeightingFunction(self, HazeImg, Filter):
+        HazeImageDouble = HazeImg.astype(float) / 255.0
+        if len(HazeImg.shape) == 3:
+            Red = HazeImageDouble[:, :, 2]
+            d_r = self.__circularConvFilt(Red, Filter)
+            Green = HazeImageDouble[:, :, 1]
+            d_g = self.__circularConvFilt(Green, Filter)
+            Blue = HazeImageDouble[:, :, 0]
+            d_b = self.__circularConvFilt(Blue, Filter)
+            return np.exp(-((d_r ** 2) + (d_g ** 2) + (d_b ** 2)) / (2 * self.sigma * self.sigma))
+        else:
+            d = self.__circularConvFilt(HazeImageDouble, Filter)
+            return np.exp(-((d ** 2) + (d ** 2) + (d ** 2)) / (2 * self.sigma * self.sigma))
+
+    def __circularConvFilt(self, Img, Filter):
+        FilterHeight, FilterWidth = Filter.shape
+        assert (FilterHeight == FilterWidth), 'Filter must be square in shape --> Height must be same as width'
+        assert (FilterHeight % 2 == 1), 'Filter dimension must be a odd number.'
+        filterHalsSize = int((FilterHeight - 1) / 2)
+        rows, cols = Img.shape
+        PaddedImg = cv2.copyMakeBorder(Img, filterHalsSize, filterHalsSize, filterHalsSize, filterHalsSize,
+                                       borderType=cv2.BORDER_WRAP)
+        FilteredImg = cv2.filter2D(PaddedImg, -1, Filter)
+        Result = FilteredImg[filterHalsSize:rows + filterHalsSize, filterHalsSize:cols + filterHalsSize]
+        return Result
+
+    def __CalTransmission(self, HazeImg):
+        rows, cols = self._Transmission.shape
+        KirschFilters = self.__LoadFilterBank()
+        for idx, currentFilter in enumerate(KirschFilters):
+            KirschFilters[idx] = KirschFilters[idx] / np.linalg.norm(currentFilter)
+        WFun = []
+        for idx, currentFilter in enumerate(KirschFilters):
+            WFun.append(self.__CalculateWeightingFunction(HazeImg, currentFilter))
+        tF = np.fft.fft2(self._Transmission)
+        DS = 0
+        for i in range(len(KirschFilters)):
+            D = self.__psf2otf(KirschFilters[i], (rows, cols))
+            DS = DS + (abs(D) ** 2)
+        beta = 1
+        beta_max = 2 ** 4
+        beta_rate = 2 * np.sqrt(2)
+        while beta < beta_max:
+            gamma = self.regularize_lambda / beta
+            DU = 0
+            for i in range(len(KirschFilters)):
+                dt = self.__circularConvFilt(self._Transmission, KirschFilters[i])
+                u = np.maximum((abs(dt) - (WFun[i] / (len(KirschFilters) * beta))), 0) * np.sign(dt)
+                DU = DU + np.fft.fft2(self.__circularConvFilt(u, cv2.flip(KirschFilters[i], -1)))
+            self._Transmission = np.abs(np.fft.ifft2((gamma * tF + DU) / (gamma + DS)))
+            beta = beta * beta_rate
+        if self.showHazeTransmissionMap:
+            cv2.imshow("Haze Transmission Map", self._Transmission)
+            cv2.waitKey(1)
+
+    def __removeHaze(self, HazeImg):
+        epsilon = 0.0001
+        Transmission = pow(np.maximum(abs(self._Transmission), epsilon), self.delta)
+        HazeCorrectedImage = copy.deepcopy(HazeImg)
+        if len(HazeImg.shape) == 3:
+            for ch in range(HazeImg.shape[2]):
+                temp = ((HazeImg[:, :, ch].astype(float) - self._A[ch]) / Transmission) + self._A[ch]
+                temp = np.maximum(np.minimum(temp, 255), 0)
+                HazeCorrectedImage[:, :, ch] = temp
+        else:
+            temp = ((HazeImg.astype(float) - self._A[0]) / Transmission) + self._A[0]
+            temp = np.maximum(np.minimum(temp, 255), 0)
+            HazeCorrectedImage = temp
+        return HazeCorrectedImage
+
+    def __psf2otf(self, psf, shape):
+        if np.all(psf == 0):
+            return np.zeros_like(psf)
+        inshape = psf.shape
+        psf = self.__zero_pad(psf, shape, position='corner')
+        for axis, axis_size in enumerate(inshape):
+            psf = np.roll(psf, -int(axis_size / 2), axis=axis)
+        otf = np.fft.fft2(psf)
+        n_ops = np.sum(psf.size * np.log2(psf.shape))
+        otf = np.real_if_close(otf, tol=n_ops)
+        return otf
+
+    def __zero_pad(self, image, shape, position='corner'):
+        shape = np.asarray(shape, dtype=int)
+        imshape = np.asarray(image.shape, dtype=int)
+        if np.all(imshape == shape):
+            return image
+        if np.any(shape <= 0):
+            raise ValueError("ZERO_PAD: null or negative shape given")
+        dshape = shape - imshape
+        if np.any(dshape < 0):
+            raise ValueError("ZERO_PAD: target size smaller than source one")
+        pad_img = np.zeros(shape, dtype=image.dtype)
+        idx, idy = np.indices(imshape)
+        if position == 'center':
+            if np.any(dshape % 2 != 0):
+                raise ValueError("ZERO_PAD: source and target shapes have different parity.")
+            offx, offy = dshape // 2
+        else:
+            offx, offy = (0, 0)
+        pad_img[idx + offx, idy + offy] = image
+        return pad_img
+
+    def remove_haze(self, HazeImg):
+        self.__AirlightEstimation(HazeImg)
+        self.__BoundCon(HazeImg)
+        self.__CalTransmission(HazeImg)
+        haze_corrected_img = self.__removeHaze(HazeImg)
+        return haze_corrected_img, self._Transmission
+
+def remove_haze(HazeImg, airlightEstimation_windowSze=15, boundaryConstraint_windowSze=3, C0=20, C1=300,
+                regularize_lambda=0.1, sigma=0.5, delta=0.85, showHazeTransmissionMap=True):
+    Dehazer = image_dehazer(airlightEstimation_windowSze=airlightEstimation_windowSze,
+                            boundaryConstraint_windowSze=boundaryConstraint_windowSze, C0=C0, C1=C1,
+                            regularize_lambda=regularize_lambda, sigma=sigma, delta=delta,
+                            showHazeTransmissionMap=showHazeTransmissionMap)
+    HazeCorrectedImg, HazeTransmissionMap = Dehazer.remove_haze(HazeImg)
+    return HazeCorrectedImg, HazeTransmissionMap
+
+def process_frame(frame):
+    corrected_frame = remove_haze(frame, showHazeTransmissionMap=False)
+    return corrected_frame
+
+if __name__ == '__main__':
+    cap = cv2.VideoCapture(0)
+
+    if not cap.isOpened():
+        print("Error: Could not open video stream.")
+        exit()
+
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    print(f"Camera opened successfully at {width}x{height}. Press 'q' to quit.")
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Failed to grab frame.")
+            break
+
+        haze_corrected_img, haze_map = remove_haze(frame, showHazeTransmissionMap=False)
+
+        haze_map_display = (haze_map * 255).astype(np.uint8)
+        haze_map_display_bgr = cv2.cvtColor(haze_map_display, cv2.COLOR_GRAY2BGR)
+
+        combined_view = np.hstack([frame, haze_corrected_img])
+
+        cv2.imshow("Original | Haze Map | Dehazed (Press 'q' to quit)", combined_view)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    print("Exiting program.")
+    cap.release()
+    cv2.destroyAllWindows()
