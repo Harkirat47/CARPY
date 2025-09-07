@@ -251,8 +251,9 @@ class BlindspotTracker:
         step_y = max(1, h // gy)
 
         med_lap, med_edges, med_contr = self._global_tile_stats(gray)
-        frame_informative = (med_edges >= self.global_min_edges) or (med_lap >= self.global_min_lap)
-
+        # frame_informative = (med_edges >= self.global_min_edges) or (med_lap >= self.global_min_lap)
+        frame_informative = (med_edges >= self.global_min_edges) or (med_lap >= 0.8 * self.global_min_lap)
+        
         boxes = []
         d = self.decay_tile
 
@@ -272,12 +273,15 @@ class BlindspotTracker:
                 r_lap   = lap / (med_lap + 1e-6)
                 r_edge  = ed  / (med_edges + 1e-6)
                 r_contr = ct  / (med_contr + 1e-6)
-
-                smudge_now = (
-                    (r_lap   < self.ratio_lap_thresh) and
-                    (r_edge  < self.ratio_edge_thresh) and
-                    (r_contr < self.ratio_contrast_thresh)
-                )
+                low_cnt = int(r_lap < self.ratio_lap_thresh) \
+                    + int(r_edge < self.ratio_edge_thresh) \
+                    + int(r_contr < self.ratio_contrast_thresh)
+                smudge_now = (low_cnt >= 2)
+                # smudge_now = (
+                #     (r_lap   < self.ratio_lap_thresh) and
+                #     (r_edge  < self.ratio_edge_thresh) and
+                #     (r_contr < self.ratio_contrast_thresh)
+                # )
 
                 # Update persistence only when frame is informative
                 if frame_informative:
