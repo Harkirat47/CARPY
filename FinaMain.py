@@ -32,7 +32,7 @@ from CAMFINALREAL import CameraMonitor  # unchanged
 try:
     from WeatherModel import process_frame as weather_process_frame
     HAVE_WEATHER = True
-except Exception:
+except Exception as e:
     HAVE_WEATHER = False
     weather_process_frame = None
 
@@ -127,19 +127,40 @@ class YoloRunner:
         return out
 
 # --------------------------
-# Weather wrapper (copied from optimizer)
+# Weather wrapper (FIXED)
 # --------------------------
 class WeatherRunner:
     def __init__(self, enabled=True):
         self.enabled = HAVE_WEATHER and enabled
+        if self.enabled:
+            print("[Weather] Dehazing is enabled.")
+        else:
+            print("[Weather] Dehazing is disabled or unavailable.")
 
     def __call__(self, frame_bgr: np.ndarray) -> np.ndarray:
         if not self.enabled:
             return frame_bgr
         try:
-            enhanced, _ = weather_process_frame(frame_bgr)
-            return enhanced if enhanced is not None else frame_bgr
-        except Exception:
+            # Call the weather processing function - it returns (dehazed_frame, transmission_map)
+            result = weather_process_frame(frame_bgr)
+            
+            # The WeatherModel.process_frame returns a tuple: (corrected_frame, transmission_map)
+            if isinstance(result, tuple) and len(result) == 2:
+                enhanced = result[0]  # Take the dehazed frame
+            else:
+                # Fallback in case the function changes or returns something unexpected
+                enhanced = result
+            
+            # Ensure the enhanced frame is valid
+            if enhanced is not None and enhanced.shape == frame_bgr.shape:
+                return enhanced.astype(np.uint8)
+            else:
+                print("[Weather] Invalid enhanced frame, returning original")
+                return frame_bgr
+                
+        except Exception as e:
+            # Print the error and disable for the rest of the session
+            print(f"[Weather] Error during processing, disabling for this session: {e}")
             self.enabled = False
             return frame_bgr
 
@@ -263,7 +284,7 @@ def _coerce_row(d: Dict[str, str]) -> Dict[str, Any]:
     out.setdefault("grid_x", 8); out.setdefault("grid_y", 6)
     out.setdefault("limit_resolution", 0)
     out.setdefault("start_with_grid", 0)
-    out.setdefault("weather_on", 0)
+    out.setdefault("weather_on", 1)
     out.setdefault("yolo_conf", 0.25)
     out.setdefault("yolo_iou", 0.5)
     out.setdefault("init_min_score", -1.0)
@@ -324,7 +345,10 @@ def render_full_video(video_path: str,
 
     # Build pipeline elements
     yolo = YoloRunner(weights_path=weights)
-    weather = WeatherRunner(enabled=bool(int(kn.get("weather_on", 0))))
+    print(f"[Debug] weather_on config value: {kn.get('weather_on', 0)} (type: {type(kn.get('weather_on', 0))})")
+    weather_enabled = bool(int(kn.get("weather_on", 0)))
+    print(f"[Debug] weather_enabled converted to: {weather_enabled}")
+    weather = WeatherRunner(enabled=False)
     monitor = build_monitor(kn)
 
     # Apply limit_resolution (if any) to the *first* frame to determine writer size
@@ -356,6 +380,8 @@ def render_full_video(video_path: str,
     writer.write(np.hstack([left0, right0]))
 
     # Process remaining frames
+    import time
+    start_time = time.time()
     frame_idx = 1
     while True:
         ok, frame = cap.read()
@@ -376,7 +402,7 @@ def render_full_video(video_path: str,
         det_raw = yolo.infer(enhanced, conf=float(kn["yolo_conf"]), iou=float(kn["yolo_iou"]))
         det_cor = yolo.infer(corrected, conf=float(kn["yolo_conf"]), iou=float(kn["yolo_iou"]))
 
-        left  = YoloRunner.draw(enhanced, det_raw)
+        left  = YoloRunner.draw(f, det_raw)
         right = YoloRunner.draw(corrected, det_cor)
 
         hud = f"maskNZ={meta.get('mask_nonzero',0)} | active={meta.get('active_tiles',0)} | wx={'on' if int(kn.get('weather_on',0)) else 'off'}"

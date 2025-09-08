@@ -5,7 +5,7 @@
   "start_with_grid": 1,
   "yolo_conf": 0.35,
   "yolo_iou": 0.53,
-  "weather_on": 0,
+  "weather_on": 1,
   "grid_x": 8,
   "grid_y": 6,
   "persistence_hi": 0.75,

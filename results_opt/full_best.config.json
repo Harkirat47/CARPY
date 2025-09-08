@@ -40,7 +40,7 @@
   "start_with_grid": 1,
   "trial": 8,
   "var_thresh": 2.92,
-  "weather_on": 0,
+  "weather_on": 1,
   "yolo_conf": 0.35,
   "yolo_iou": 0.53
 }
